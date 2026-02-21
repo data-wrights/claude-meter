@@ -1,0 +1,95 @@
+{
+  "name": "claude-usage-monitor",
+  "displayName": "Claude Usage Monitor",
+  "description": "Shows Claude subscription usage limits (5-hour and 7-day windows) as percentages in the VS Code status bar",
+  "version": "1.0.0",
+  "publisher": "DataWrights",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/claude-usage-monitor"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeUsage.refresh",
+        "title": "Claude Usage: Refresh Now"
+      },
+      {
+        "command": "claudeUsage.showDetails",
+        "title": "Claude Usage: Show Details"
+      },
+      {
+        "command": "claudeUsage.configure",
+        "title": "Claude Usage: Enter Token"
+      },
+      {
+        "command": "claudeUsage.clearToken",
+        "title": "Claude Usage: Clear Cached Token"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Usage Monitor",
+      "properties": {
+        "claudeUsage.refreshIntervalMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "How often (in minutes) to refresh usage data from the Anthropic API."
+        },
+        "claudeUsage.manualToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Override the auto-detected OAuth token. Leave empty to auto-read from `~/.claude/.credentials.json`. Accepts an OAuth bearer token from Claude Code."
+        },
+        "claudeUsage.statusBarPosition": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "right",
+          "description": "Which side of the status bar to place the usage item."
+        },
+        "claudeUsage.statusBarPriority": {
+          "type": "number",
+          "default": 100,
+          "description": "Priority of the status bar item. Higher values appear further left within the chosen side."
+        },
+        "claudeUsage.showModelBreakdown": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show per-model (Opus/Sonnet) breakdown in the status bar tooltip."
+        },
+        "claudeUsage.notifyAtThreshold": {
+          "type": "number",
+          "default": 0.9,
+          "minimum": 0.1,
+          "maximum": 1.0,
+          "description": "Show a warning notification when any usage window reaches this fraction (0.0–1.0). Set to 1.0 to disable."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.94.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.6.0"
+  }
+}
