@@ -8,16 +8,16 @@ export class ErrorHandler {
     switch (error.kind) {
       case "no-token": {
         const choice = await vscode.window.showWarningMessage(
-          "Claude Usage Monitor: No authentication token found.",
+          "Claude Meter: No authentication token found.",
           "Enter Token",
           "Open Settings"
         );
         if (choice === "Enter Token") {
-          await vscode.commands.executeCommand("claudeUsage.configure");
+          await vscode.commands.executeCommand("claudeMeter.configure");
         } else if (choice === "Open Settings") {
           await vscode.commands.executeCommand(
             "workbench.action.openSettings",
-            "claudeUsage.manualToken"
+            "claudeMeter.manualToken"
           );
         }
         break;
@@ -25,11 +25,11 @@ export class ErrorHandler {
 
       case "token-expired": {
         const choice = await vscode.window.showWarningMessage(
-          "Claude Usage Monitor: Token expired or invalid. Re-authenticate Claude Code or update your token.",
+          "Claude Meter: Token expired or invalid. Re-authenticate Claude Code or update your token.",
           "Enter New Token"
         );
         if (choice === "Enter New Token") {
-          await vscode.commands.executeCommand("claudeUsage.configure");
+          await vscode.commands.executeCommand("claudeMeter.configure");
         }
         break;
       }
@@ -39,7 +39,7 @@ export class ErrorHandler {
           ? ` Retry after ${error.retryAfter.toLocaleTimeString()}.`
           : "";
         vscode.window.showInformationMessage(
-          `Claude Usage Monitor: Rate limited by Anthropic API.${retryStr}`
+          `Claude Meter: Rate limited by Anthropic API.${retryStr}`
         );
         break;
       }
@@ -61,7 +61,7 @@ export class ErrorHandler {
       if (!this.thresholdNotifiedWindows.has(windowKey)) {
         this.thresholdNotifiedWindows.add(windowKey);
         vscode.window.showWarningMessage(
-          `Claude Usage Monitor: ${windowLabel} utilization is at ` +
+          `Claude Meter: ${windowLabel} utilization is at ` +
             `${Math.round(utilization * 100)}% ` +
             `(threshold: ${Math.round(threshold * 100)}%).`
         );

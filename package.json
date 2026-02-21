@@ -1,7 +1,7 @@
 {
-  "name": "claude-usage-monitor",
-  "displayName": "Claude Usage Monitor",
-  "description": "Shows Claude subscription usage limits (5-hour and 7-day windows) as percentages in the VS Code status bar",
+  "name": "claude-meter",
+  "displayName": "Claude Meter",
+  "description": "Shows Claude subscription usage limits (daily & weekly) as percentages in the VS Code status bar. Auto-detects Claude Code credentials.",
   "version": "1.0.0",
   "publisher": "DataWrights",
   "engines": {
@@ -13,7 +13,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/data-wrights/Claude_Usage"
+    "url": "https://github.com/data-wrights/claude-meter"
   },
   "activationEvents": [
     "onStartupFinished"
@@ -22,38 +22,38 @@
   "contributes": {
     "commands": [
       {
-        "command": "claudeUsage.refresh",
-        "title": "Claude Usage: Refresh Now"
+        "command": "claudeMeter.refresh",
+        "title": "Claude Meter: Refresh Now"
       },
       {
-        "command": "claudeUsage.showDetails",
-        "title": "Claude Usage: Show Details"
+        "command": "claudeMeter.showDetails",
+        "title": "Claude Meter: Show Details"
       },
       {
-        "command": "claudeUsage.configure",
-        "title": "Claude Usage: Enter Token"
+        "command": "claudeMeter.configure",
+        "title": "Claude Meter: Enter Token"
       },
       {
-        "command": "claudeUsage.clearToken",
-        "title": "Claude Usage: Clear Cached Token"
+        "command": "claudeMeter.clearToken",
+        "title": "Claude Meter: Clear Cached Token"
       }
     ],
     "configuration": {
-      "title": "Claude Usage Monitor",
+      "title": "Claude Meter",
       "properties": {
-        "claudeUsage.refreshIntervalMinutes": {
+        "claudeMeter.refreshIntervalMinutes": {
           "type": "number",
           "default": 5,
           "minimum": 1,
           "maximum": 60,
           "description": "How often (in minutes) to refresh usage data from the Anthropic API."
         },
-        "claudeUsage.manualToken": {
+        "claudeMeter.manualToken": {
           "type": "string",
           "default": "",
           "markdownDescription": "Override the auto-detected OAuth token. Leave empty to auto-read from `~/.claude/.credentials.json`. Accepts an OAuth bearer token from Claude Code."
         },
-        "claudeUsage.statusBarPosition": {
+        "claudeMeter.statusBarPosition": {
           "type": "string",
           "enum": [
             "left",
@@ -62,17 +62,17 @@
           "default": "right",
           "description": "Which side of the status bar to place the usage item."
         },
-        "claudeUsage.statusBarPriority": {
+        "claudeMeter.statusBarPriority": {
           "type": "number",
           "default": 100,
           "description": "Priority of the status bar item. Higher values appear further left within the chosen side."
         },
-        "claudeUsage.showModelBreakdown": {
+        "claudeMeter.showModelBreakdown": {
           "type": "boolean",
           "default": false,
           "description": "Show per-model (Opus/Sonnet) breakdown in the status bar tooltip."
         },
-        "claudeUsage.notifyAtThreshold": {
+        "claudeMeter.notifyAtThreshold": {
           "type": "number",
           "default": 0.9,
           "minimum": 0.1,

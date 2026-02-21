@@ -97,24 +97,24 @@ export async function resolveToken(
     kind: "no-token",
     message:
       "Could not find a Claude OAuth token. " +
-      "Set claudeUsage.manualToken in VS Code settings, " +
+      "Set claudeMeter.manualToken in VS Code settings, " +
       "or ensure Claude Code is installed and authenticated.",
   };
 }
 
 export async function promptForManualToken(): Promise<string | undefined> {
   const value = await vscode.window.showInputBox({
-    title: "Claude Usage Monitor: Enter Token",
+    title: "Claude Meter: Enter Token",
     prompt:
       "Paste your Claude OAuth bearer token. " +
-      "This will be saved to claudeUsage.manualToken in your VS Code settings.",
+      "This will be saved to claudeMeter.manualToken in your VS Code settings.",
     password: true,
     placeHolder: "Bearer token from ~/.claude/.credentials.json",
     ignoreFocusOut: true,
   });
   if (value) {
     await vscode.workspace
-      .getConfiguration("claudeUsage")
+      .getConfiguration("claudeMeter")
       .update("manualToken", value, vscode.ConfigurationTarget.Global);
   }
   return value;

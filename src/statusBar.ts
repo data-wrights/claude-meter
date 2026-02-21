@@ -40,8 +40,8 @@ export class ClaudeUsageStatusBar {
       alignment,
       config.statusBarPriority
     );
-    this.item.command = "claudeUsage.showDetails";
-    this.item.name = "Claude Usage";
+    this.item.command = "claudeMeter.showDetails";
+    this.item.name = "Claude Meter";
     this.item.show();
   }
 
@@ -98,7 +98,7 @@ export class ClaudeUsageStatusBar {
   private buildAdminTooltip(snapshot: AdminSnapshot): vscode.MarkdownString {
     const md = new vscode.MarkdownString("", true);
     md.isTrusted = true;
-    md.appendMarkdown("**Claude Usage (Enterprise)**\n\n");
+    md.appendMarkdown("**Claude Meter (Enterprise)**\n\n");
 
     const fmtBucket = (label: string, b: { inputTokens: number; outputTokens: number } | null) => {
       if (!b) { return; }
@@ -145,7 +145,7 @@ export class ClaudeUsageStatusBar {
     const md = new vscode.MarkdownString("", true);
     md.isTrusted = true;
     md.supportHtml = true;
-    md.appendMarkdown("**Claude Usage**\n\n");
+    md.appendMarkdown("**Claude Meter**\n\n");
 
     const fmt = (
       w: { utilization: number; resets_at: string } | null,

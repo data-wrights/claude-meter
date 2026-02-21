@@ -28,11 +28,11 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.showLoading();
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("claudeUsage.refresh", () => {
+    vscode.commands.registerCommand("claudeMeter.refresh", () => {
       void performRefresh();
     }),
 
-    vscode.commands.registerCommand("claudeUsage.showDetails", () => {
+    vscode.commands.registerCommand("claudeMeter.showDetails", () => {
       if (lastAdminSnapshot) {
         DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri);
       } else {
@@ -40,18 +40,18 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand("claudeUsage.configure", async () => {
+    vscode.commands.registerCommand("claudeMeter.configure", async () => {
       await promptForManualToken();
       lastErrorKind = null;
       void performRefresh();
     }),
 
-    vscode.commands.registerCommand("claudeUsage.clearToken", async () => {
+    vscode.commands.registerCommand("claudeMeter.clearToken", async () => {
       await vscode.workspace
-        .getConfiguration("claudeUsage")
+        .getConfiguration("claudeMeter")
         .update("manualToken", "", vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(
-        "Claude Usage Monitor: Manual token cleared."
+        "Claude Meter: Manual token cleared."
       );
     })
   );

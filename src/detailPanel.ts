@@ -69,10 +69,10 @@ function buildOauthHtml(snapshot: UsageSnapshot): string {
     </div>`;
   }).join("");
 
-  return htmlShell("Claude Usage (Subscription)", `
+  return htmlShell("Claude Meter (Subscription)", `
     <div class="fetched">Last updated: ${snapshot.fetchedAt.toLocaleString()}</div>
     ${rows}
-    <div class="tip">Run <em>Claude Usage: Refresh Now</em> from the command palette to update.</div>
+    <div class="tip">Run <em>Claude Meter: Refresh Now</em> from the command palette to update.</div>
   `);
 }
 
@@ -96,7 +96,7 @@ function buildAdminHtml(snapshot: AdminSnapshot): string {
       ${statCard("Past 7 Days", weekTotal, week.inputTokens, week.outputTokens)}
     </div>`;
 
-  return htmlShell("Claude Usage (Enterprise)", `
+  return htmlShell("Claude Meter (Enterprise)", `
     <div class="fetched">Last updated: ${snapshot.fetchedAt.toLocaleString()}</div>
     ${cards}
     <div class="tip">
@@ -117,8 +117,8 @@ export class DetailPanel {
       return;
     }
     const panel = vscode.window.createWebviewPanel(
-      "claudeUsageDetail",
-      "Claude Usage Details",
+      "claudeMeterDetail",
+      "Claude Meter Details",
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
       { enableScripts: false, retainContextWhenHidden: false, localResourceRoots: [extensionUri] }
     );
@@ -137,8 +137,8 @@ export class DetailPanel {
 
   private buildHtml(snapshot: AnySnapshot): string {
     if (!snapshot) {
-      return htmlShell("Claude Usage Details",
-        `<p>No usage data available. Use <strong>Claude Usage: Refresh Now</strong> from the command palette.</p>`
+      return htmlShell("Claude Meter Details",
+        `<p>No usage data available. Use <strong>Claude Meter: Refresh Now</strong> from the command palette.</p>`
       );
     }
     if (snapshot.kind === "admin") { return buildAdminHtml(snapshot.data); }

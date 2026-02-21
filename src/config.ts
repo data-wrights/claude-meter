@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ExtensionConfig } from "./types";
 
-const SECTION = "claudeUsage";
+const SECTION = "claudeMeter";
 
 export function getConfig(): ExtensionConfig {
   const cfg = vscode.workspace.getConfiguration(SECTION);
