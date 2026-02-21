@@ -6,6 +6,7 @@ import { TokenResult, TokenType, ExtensionError } from "./types";
 
 export function detectTokenType(token: string): TokenType {
   if (token.startsWith("sk-ant-admin-")) { return "admin-key"; }
+  if (token.startsWith("sk-ant-oat"))    { return "oauth"; }  // Claude Code OAuth access token
   if (token.startsWith("sk-ant-"))       { return "api-key"; }
   return "oauth";
 }

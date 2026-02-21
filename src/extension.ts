@@ -136,7 +136,7 @@ async function performOauthRefresh(token: string, config: ReturnType<typeof getC
     );
   }
 
-  DetailPanel.show({ kind: "oauth", data: lastSnapshot }, extensionUri);
+  DetailPanel.updateIfOpen({ kind: "oauth", data: lastSnapshot });
 }
 
 async function performAdminRefresh(adminKey: string): Promise<void> {
@@ -154,7 +154,7 @@ async function performAdminRefresh(adminKey: string): Promise<void> {
   lastAdminSnapshot = result;
   statusBar.showAdminUsage(lastAdminSnapshot);
 
-  DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri);
+  DetailPanel.updateIfOpen({ kind: "admin", data: lastAdminSnapshot });
 }
 
 export function deactivate(): void {

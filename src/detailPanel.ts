@@ -110,6 +110,12 @@ export class DetailPanel {
   private static currentPanel: DetailPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
 
+  static updateIfOpen(snapshot: AnySnapshot): void {
+    if (DetailPanel.currentPanel) {
+      DetailPanel.currentPanel.update(snapshot);
+    }
+  }
+
   static show(snapshot: AnySnapshot, extensionUri: vscode.Uri): void {
     if (DetailPanel.currentPanel) {
       DetailPanel.currentPanel.update(snapshot);
