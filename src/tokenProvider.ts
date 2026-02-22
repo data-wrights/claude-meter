@@ -23,7 +23,7 @@ interface CredentialsFileShape {
   organizationUuid?: string;
 }
 
-function getCredentialsFilePaths(): string[] {
+export function getCredentialsFilePaths(): string[] {
   const home = os.homedir();
   const candidates: string[] = [
     // Claude Code standard path (confirmed on Windows)

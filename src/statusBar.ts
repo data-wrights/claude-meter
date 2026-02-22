@@ -133,9 +133,17 @@ export class ClaudeUsageStatusBar {
       "parse-error": "$(error) Claude: Parse error",
     };
     this.item.text = messages[error.kind] ?? "$(error) Claude: Error";
-    this.item.tooltip = error.message;
     this.item.color = new vscode.ThemeColor("statusBarItem.errorForeground");
     this.item.backgroundColor = undefined;
+
+    if (error.kind === "token-expired") {
+      const md = new vscode.MarkdownString("", true);
+      md.appendMarkdown(`${error.message}\n\n`);
+      md.appendMarkdown("_Will auto-refresh once Claude Code renews your credentials._");
+      this.item.tooltip = md;
+    } else {
+      this.item.tooltip = error.message;
+    }
   }
 
   private buildTooltip(
