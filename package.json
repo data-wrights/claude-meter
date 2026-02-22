@@ -2,7 +2,7 @@
   "name": "claude-meter",
   "displayName": "Claude Meter",
   "description": "Shows Claude subscription usage limits (daily & weekly) as percentages in the VS Code status bar. Auto-detects Claude Code credentials.",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "publisher": "DataWrights",
   "engines": {
     "vscode": "^1.94.0"
