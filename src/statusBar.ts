@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { UsageSnapshot, AdminSnapshot, ExtensionError, ExtensionConfig } from "./types";
+import { UsageSnapshot, AdminSnapshot, ExtensionError, ExtensionConfig, HistoryTuple } from "./types";
 import { formatTokens } from "./adminApi";
 
 export function parseResetAt(resetsAt: string): string {
@@ -17,6 +17,23 @@ export function formatTimeRemaining(resetsAt: string): string {
   if (mins  < 60)  return `${mins}m`;
   if (hours < 24)  return `${hours}h`;
   return `${days}d`;
+}
+
+// Returns trend arrow (↑/↓/→) and signed delta vs ~1 hour ago, or empty string if no history
+function trendInfo(
+  history: HistoryTuple[],
+  slotIndex: 1 | 2,
+  currentPct: number
+): { arrow: string; delta: number | null } {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  let past: HistoryTuple | undefined;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i][0] <= oneHourAgo) { past = history[i]; break; }
+  }
+  if (!past || past[slotIndex] === null) { return { arrow: "", delta: null }; }
+  const delta = Math.round(currentPct - (past[slotIndex] as number));
+  const arrow = delta > 2 ? "↑" : delta < -2 ? "↓" : "→";
+  return { arrow, delta };
 }
 
 function buildProgressBar(utilization: number): string {
@@ -45,7 +62,7 @@ export class ClaudeUsageStatusBar {
     this.item.show();
   }
 
-  showUsage(snapshot: UsageSnapshot, config: ExtensionConfig): void {
+  showUsage(snapshot: UsageSnapshot, config: ExtensionConfig, history: HistoryTuple[] = []): void {
     const fiveH = snapshot.fiveHour;
     const sevenD = snapshot.sevenDay;
 
@@ -61,12 +78,17 @@ export class ClaudeUsageStatusBar {
       ? "$(alert)"
       : "$(pulse)";
 
+    // Trend arrows — only ↑/↓ shown in status bar (→ omitted to keep it compact)
+    const dailyArrow  = fivePct  !== null ? trendInfo(history, 1, fivePct).arrow  : "";
+    const weeklyArrow = sevenPct !== null ? trendInfo(history, 2, sevenPct).arrow : "";
+    const compactArrow = (a: string) => (a === "→" ? "" : a);
+
     const parts: string[] = [];
     if (fivePct !== null && fiveH) {
-      parts.push(`Daily:${fivePct}%·${formatTimeRemaining(fiveH.resets_at)}`);
+      parts.push(`Daily:${fivePct}%${compactArrow(dailyArrow)}·${formatTimeRemaining(fiveH.resets_at)}`);
     }
     if (sevenPct !== null && sevenD) {
-      parts.push(`Weekly:${sevenPct}%·${formatTimeRemaining(sevenD.resets_at)}`);
+      parts.push(`Weekly:${sevenPct}%${compactArrow(weeklyArrow)}·${formatTimeRemaining(sevenD.resets_at)}`);
     }
 
     this.item.text = `${icon} ${parts.join("  ")}`;
@@ -77,7 +99,7 @@ export class ClaudeUsageStatusBar {
       ? new vscode.ThemeColor("statusBarItem.warningForeground")
       : "#E87B39";
 
-    this.item.tooltip = this.buildTooltip(snapshot, config);
+    this.item.tooltip = this.buildTooltip(snapshot, config, history);
     this.item.backgroundColor = isOverLimit
       ? new vscode.ThemeColor("statusBarItem.errorBackground")
       : undefined;
@@ -148,7 +170,8 @@ export class ClaudeUsageStatusBar {
 
   private buildTooltip(
     snapshot: UsageSnapshot,
-    config: ExtensionConfig
+    config: ExtensionConfig,
+    history: HistoryTuple[]
   ): vscode.MarkdownString {
     const md = new vscode.MarkdownString("", true);
     md.isTrusted = true;
@@ -157,26 +180,38 @@ export class ClaudeUsageStatusBar {
 
     const fmt = (
       w: { utilization: number; resets_at: string } | null,
-      label: string
+      label: string,
+      slotIndex: 1 | 2
     ) => {
-      if (!w) {
-        return;
-      }
+      if (!w) { return; }
       const pct = Math.round(w.utilization * 100);
       const bar = buildProgressBar(w.utilization);
       const reset = parseResetAt(w.resets_at);
       const remaining = formatTimeRemaining(w.resets_at);
+      const { arrow, delta } = trendInfo(history, slotIndex, pct);
+      const trendStr = delta !== null
+        ? ` ${arrow} ${delta >= 0 ? "+" : ""}${delta}% vs 1h ago`
+        : "";
       md.appendMarkdown(
-        `**${label}**: \`${bar}\` ${pct}%  \nResets in **${remaining}** (${reset})\n\n`
+        `**${label}**: \`${bar}\` ${pct}%${trendStr}  \nResets in **${remaining}** (${reset})\n\n`
       );
     };
 
-    fmt(snapshot.fiveHour, "Daily");
-    fmt(snapshot.sevenDay, "Weekly");
+    fmt(snapshot.fiveHour, "Daily", 1);
+    fmt(snapshot.sevenDay, "Weekly", 2);
 
     if (config.showModelBreakdown) {
-      fmt(snapshot.sevenDayOpus, "Weekly (Opus)");
-      fmt(snapshot.sevenDaySonnet, "Weekly (Sonnet)");
+      // Model breakdown windows don't have dedicated history slots — show without trend
+      const fmtNoTrend = (w: { utilization: number; resets_at: string } | null, label: string) => {
+        if (!w) { return; }
+        const pct = Math.round(w.utilization * 100);
+        const bar = buildProgressBar(w.utilization);
+        md.appendMarkdown(
+          `**${label}**: \`${bar}\` ${pct}%  \nResets in **${formatTimeRemaining(w.resets_at)}** (${parseResetAt(w.resets_at)})\n\n`
+        );
+      };
+      fmtNoTrend(snapshot.sevenDayOpus, "Weekly (Opus)");
+      fmtNoTrend(snapshot.sevenDaySonnet, "Weekly (Sonnet)");
     }
 
     const fetchedAgo = Math.round(

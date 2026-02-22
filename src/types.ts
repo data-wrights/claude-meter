@@ -77,3 +77,21 @@ export interface ExtensionConfig {
   showModelBreakdown: boolean;
   notifyAtThreshold: number;
 }
+
+// Compact history tuple types for globalState storage (no key names = smaller JSON)
+// OAuth:  slot1 = fiveHour utilization % (0-100), slot2 = sevenDay utilization % (0-100)
+// Admin:  slot1 = today tokens / 1000, slot2 = null
+export type HistoryTuple = [
+  number,       // [0] Unix ms timestamp
+  number | null, // [1] slot1
+  number | null  // [2] slot2
+];
+
+// Daily aggregate — one entry per calendar day (local time)
+// OAuth:  slot1 = peak fiveHour % seen that day, slot2 = final sevenDay % that day
+// Admin:  slot1 = final today tokens / 1000, slot2 = null
+export type DailyAggregate = [
+  string,        // [0] "YYYY-MM-DD"
+  number | null, // [1] slot1
+  number | null  // [2] slot2
+];

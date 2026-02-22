@@ -8,7 +8,7 @@ import { RefreshScheduler } from "./refreshScheduler";
 import { DetailPanel } from "./detailPanel";
 import { ErrorHandler } from "./errorHandler";
 import { getConfig, onConfigChange } from "./config";
-import { UsageSnapshot, AdminSnapshot } from "./types";
+import { UsageSnapshot, AdminSnapshot, HistoryTuple, DailyAggregate } from "./types";
 
 let statusBar: ClaudeUsageStatusBar;
 let scheduler: RefreshScheduler;
@@ -16,11 +16,54 @@ let errorHandler: ErrorHandler;
 let lastSnapshot: UsageSnapshot | null = null;
 let lastAdminSnapshot: AdminSnapshot | null = null;
 let extensionUri: vscode.Uri;
+let extensionContext!: vscode.ExtensionContext;
 
 // Track whether we've shown a persistent error notification to avoid spamming
 let lastErrorKind: string | null = null;
 
+// --- History storage ---
+const HISTORY_KEY = "claudeMeter.history";
+const DAILY_KEY   = "claudeMeter.daily";
+const MAX_HISTORY = 60;  // ~5h at 5-min intervals
+const MAX_DAILY   = 90;  // 3 months of days
+
+function localDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function appendHistory(entry: HistoryTuple): void {
+  const h: HistoryTuple[] = extensionContext.globalState.get(HISTORY_KEY, []);
+  h.push(entry);
+  if (h.length > MAX_HISTORY) { h.splice(0, h.length - MAX_HISTORY); }
+  void extensionContext.globalState.update(HISTORY_KEY, h);
+}
+
+function updateDaily(slot1: number | null, slot2: number | null): void {
+  const today = localDateStr();
+  const d: DailyAggregate[] = extensionContext.globalState.get(DAILY_KEY, []);
+  const last = d[d.length - 1];
+  if (last && last[0] === today) {
+    // Peak for slot1, latest for slot2
+    last[1] = last[1] === null ? slot1 : slot1 === null ? last[1] : Math.max(last[1], slot1);
+    last[2] = slot2;
+  } else {
+    d.push([today, slot1, slot2]);
+    if (d.length > MAX_DAILY) { d.splice(0, d.length - MAX_DAILY); }
+  }
+  void extensionContext.globalState.update(DAILY_KEY, d);
+}
+
+function getHistory(): HistoryTuple[] {
+  return extensionContext.globalState.get<HistoryTuple[]>(HISTORY_KEY, []);
+}
+
+function getDaily(): DailyAggregate[] {
+  return extensionContext.globalState.get<DailyAggregate[]>(DAILY_KEY, []);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
+  extensionContext = context;
   extensionUri = context.extensionUri;
   errorHandler = new ErrorHandler();
 
@@ -34,10 +77,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand("claudeMeter.showDetails", () => {
+      const history = { recent: getHistory(), daily: getDaily() };
       if (lastAdminSnapshot) {
-        DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri);
+        DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri, history);
       } else {
-        DetailPanel.show(lastSnapshot ? { kind: "oauth", data: lastSnapshot } : null, extensionUri);
+        DetailPanel.show(lastSnapshot ? { kind: "oauth", data: lastSnapshot } : null, extensionUri, history);
       }
     }),
 
@@ -136,7 +180,14 @@ async function performOauthRefresh(token: string, config: ReturnType<typeof getC
 
   lastAdminSnapshot = null;
   lastSnapshot = normalizeResponse(apiResult);
-  statusBar.showUsage(lastSnapshot, config);
+
+  const dailyPct = lastSnapshot.fiveHour ? Math.round(lastSnapshot.fiveHour.utilization * 100) : null;
+  const weeklyPct = lastSnapshot.sevenDay ? Math.round(lastSnapshot.sevenDay.utilization * 100) : null;
+  appendHistory([Date.now(), dailyPct, weeklyPct]);
+  updateDaily(dailyPct, weeklyPct);
+
+  const history = { recent: getHistory(), daily: getDaily() };
+  statusBar.showUsage(lastSnapshot, config, history.recent);
 
   if (lastSnapshot.fiveHour) {
     errorHandler.notifyIfHighUsage(
@@ -155,7 +206,7 @@ async function performOauthRefresh(token: string, config: ReturnType<typeof getC
     );
   }
 
-  DetailPanel.updateIfOpen({ kind: "oauth", data: lastSnapshot });
+  DetailPanel.updateIfOpen({ kind: "oauth", data: lastSnapshot }, history);
 }
 
 async function performAdminRefresh(adminKey: string): Promise<void> {
@@ -171,9 +222,17 @@ async function performAdminRefresh(adminKey: string): Promise<void> {
 
   lastSnapshot = null;
   lastAdminSnapshot = result;
+
+  const todayK = lastAdminSnapshot.today
+    ? Math.round((lastAdminSnapshot.today.inputTokens + lastAdminSnapshot.today.outputTokens) / 1000)
+    : null;
+  appendHistory([Date.now(), todayK, null]);
+  updateDaily(todayK, null);
+
   statusBar.showAdminUsage(lastAdminSnapshot);
 
-  DetailPanel.updateIfOpen({ kind: "admin", data: lastAdminSnapshot });
+  const adminHistory = { recent: getHistory(), daily: getDaily() };
+  DetailPanel.updateIfOpen({ kind: "admin", data: lastAdminSnapshot }, adminHistory);
 }
 
 export function deactivate(): void {
