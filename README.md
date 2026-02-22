@@ -5,21 +5,24 @@ A VS Code extension that shows your Claude subscription usage directly in the st
 ## Features
 
 - **Status bar display** — live Daily and Weekly usage percentages at a glance
-- **Countdown to reset** — shows time remaining (e.g. `Daily:26%·3h  Weekly:20%·5d`)
+- **Trend arrows** — `↑`/`↓` appear next to percentages when usage is rising or falling vs. an hour ago
+- **Countdown to reset** — shows time remaining (e.g. `Daily:26%↑·3h  Weekly:20%→·5d`)
 - **Color-coded alerts** — orange at ≥80%, red background at ≥100%
-- **Hover tooltip** — ASCII progress bars with exact reset times per window
-- **Detail panel** — click the status bar item for a full breakdown with bar charts
+- **Hover tooltip** — ASCII progress bars, exact reset times, and `+X% vs 1h ago` trend deltas per window
+- **Detail panel** — click the status bar item for a full breakdown with bar charts, short-term sparklines (last 2 hours), and a 30-day daily history chart
+- **Persistent history** — usage data survives VS Code reloads; daily peak values are stored for up to 3 months
 - **Model breakdown** — optional Opus/Sonnet sub-bars in the tooltip
-- **Enterprise support** — admin API keys (`sk-ant-admin-...`) show token counts (Today/Week)
+- **Enterprise support** — admin API keys (`sk-ant-admin-...`) show token counts (Today/Week) with daily history
 - **Auto token detection** — reads your Claude Code credentials automatically, no setup needed
 
 ## Status Bar
 
 ```
-$(pulse) Daily:26%·3h  Weekly:20%·5d        ← normal (orange)
-$(alert) Daily:81%·45m  Weekly:20%·5d       ← high usage ≥80%
-$(warning) Daily:103%·now  Weekly:95%·2d    ← over limit ≥100%
-$(pulse) Today:1.2M  Week:8.5M              ← enterprise / admin key
+$(pulse) Daily:26%·3h  Weekly:20%·5d         ← normal (white)
+$(pulse) Daily:26%↑·3h  Weekly:20%→·5d       ← with trend arrows (after 1h of data)
+$(alert) Daily:81%↑·45m  Weekly:20%·5d       ← high usage ≥80%
+$(warning) Daily:103%·now  Weekly:95%·2d     ← over limit ≥100%
+$(pulse) Today:1.2M  Week:8.5M               ← enterprise / admin key
 ```
 
 ## Token Support

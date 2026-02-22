@@ -92,12 +92,12 @@ export class ClaudeUsageStatusBar {
     }
 
     this.item.text = `${icon} ${parts.join("  ")}`;
-    // Claude brand orange for normal state; shift to warning/error colors as usage rises
+    // Shift to warning/error colors as usage rises; default (white) for normal state
     this.item.color = isOverLimit
       ? new vscode.ThemeColor("statusBarItem.errorForeground")
       : isHighUsage
       ? new vscode.ThemeColor("statusBarItem.warningForeground")
-      : "#E87B39";
+      : undefined;
 
     this.item.tooltip = this.buildTooltip(snapshot, config, history);
     this.item.backgroundColor = isOverLimit
@@ -112,7 +112,7 @@ export class ClaudeUsageStatusBar {
     const weekTok = formatTokens(snapshot.week.inputTokens + snapshot.week.outputTokens);
 
     this.item.text = `$(pulse) Today:${todayTok}  Week:${weekTok}`;
-    this.item.color = "#E87B39";
+    this.item.color = undefined;
     this.item.backgroundColor = undefined;
     this.item.tooltip = this.buildAdminTooltip(snapshot);
   }
@@ -141,7 +141,7 @@ export class ClaudeUsageStatusBar {
   showLoading(): void {
     this.item.text = "$(loading~spin) Claude";
     this.item.tooltip = "Fetching Claude usage data...";
-    this.item.color = "#E87B39";
+    this.item.color = undefined;
     this.item.backgroundColor = undefined;
   }
 
