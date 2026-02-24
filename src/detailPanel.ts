@@ -1,13 +1,15 @@
 import * as vscode from "vscode";
-import { UsageSnapshot, AdminSnapshot, HistoryTuple, DailyAggregate } from "./types";
+import { UsageSnapshot, AdminSnapshot, EnterpriseSnapshot, HistoryTuple, DailyAggregate } from "./types";
 import { parseResetAt } from "./statusBar";
 import { formatTokens } from "./adminApi";
 
 type HistoryData = { recent: HistoryTuple[]; daily: DailyAggregate[] };
 
 type AnySnapshot =
-  | { kind: "oauth";  data: UsageSnapshot }
-  | { kind: "admin";  data: AdminSnapshot }
+  | { kind: "oauth";       data: UsageSnapshot }
+  | { kind: "admin";       data: AdminSnapshot }
+  | { kind: "enterprise";  data: EnterpriseSnapshot }
+  | { kind: "enterprise-unavailable" }
   | null;
 
 const SHARED_CSS = `
@@ -186,6 +188,53 @@ function buildAdminHtml(snapshot: AdminSnapshot, history?: HistoryData): string 
   `);
 }
 
+function buildEnterpriseHtml(snapshot: EnterpriseSnapshot): string {
+  const pct = snapshot.monthlyLimit > 0
+    ? Math.round((snapshot.usageCredits / snapshot.monthlyLimit) * 100)
+    : 0;
+  const displayPct = Math.min(pct, 100);
+  const color = pct >= 90 ? "#f44747" : pct >= 70 ? "#ff8c00" : "#4ec9b0";
+  const spent = snapshot.usageCredits.toFixed(2);
+  const limit = snapshot.monthlyLimit.toFixed(2);
+
+  const bar = `
+    <div class="window-row">
+      <div class="window-label">Monthly Spend</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${displayPct}%;background:${color}"></div></div>
+      <div class="window-meta">
+        <span class="pct ${pct >= 90 ? "danger" : pct >= 70 ? "warn" : ""}">$${spent} used</span>
+        <span class="reset">Limit: $${limit}</span>
+      </div>
+    </div>`;
+
+  return htmlShell("Claude Meter (Enterprise)", `
+    <div class="fetched">Last updated: ${snapshot.fetchedAt.toLocaleString()}</div>
+    ${bar}
+    <div class="tip">
+      Monthly spend shown in dollars. Limit resets at the start of your billing period.<br>
+      For a full cost breakdown by model, visit the <strong>Anthropic Console</strong>.
+    </div>
+  `);
+}
+
+function buildEnterpriseUnavailableHtml(): string {
+  return htmlShell("Claude Meter (Enterprise)", `
+    <p>Your account uses enterprise billing based on API spend — the individual rate-limit windows don't apply.</p>
+    <p>The extension attempted to fetch your spend data from <code>claude.ai</code> using your OAuth token,
+    but the endpoint requires browser session auth (cookie) rather than a Bearer token, so it could not be read automatically.</p>
+    <h3>What you can do</h3>
+    <ul>
+      <li><strong>Set your account UUID manually</strong> — open VS Code settings and set
+        <code>claudeMeter.accountUuid</code> to the value of the <code>account_uuid</code>
+        query parameter you see in your browser when visiting the usage page on claude.ai.
+        The extension will keep retrying the endpoint with each approach it knows about.</li>
+      <li><strong>Ask your org admin</strong> for an <code>sk-ant-admin-...</code> key and set it in
+        <code>claudeMeter.manualToken</code>. This shows today's and 7-day token counts.</li>
+    </ul>
+    <div class="tip">Run <em>Claude Meter: Refresh Now</em> from the command palette to retry.</div>
+  `);
+}
+
 export class DetailPanel {
   private static currentPanel: DetailPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
@@ -227,7 +276,9 @@ export class DetailPanel {
         `<p>No usage data available. Use <strong>Claude Meter: Refresh Now</strong> from the command palette.</p>`
       );
     }
-    if (snapshot.kind === "admin") { return buildAdminHtml(snapshot.data, history); }
+    if (snapshot.kind === "admin")                  { return buildAdminHtml(snapshot.data, history); }
+    if (snapshot.kind === "enterprise")             { return buildEnterpriseHtml(snapshot.data); }
+    if (snapshot.kind === "enterprise-unavailable") { return buildEnterpriseUnavailableHtml(); }
     return buildOauthHtml(snapshot.data, history);
   }
 

@@ -3,18 +3,20 @@ import * as path from "path";
 import { ClaudeUsageStatusBar } from "./statusBar";
 import { fetchUsage, isExtensionError, normalizeResponse } from "./usageApi";
 import { fetchAdminUsage, isAdminError } from "./adminApi";
+import { fetchAccountUuid, fetchEnterpriseSpend, isEnterpriseError } from "./enterpriseApi";
 import { resolveToken, promptForManualToken, getCredentialsFilePaths } from "./tokenProvider";
 import { RefreshScheduler } from "./refreshScheduler";
 import { DetailPanel } from "./detailPanel";
 import { ErrorHandler } from "./errorHandler";
 import { getConfig, onConfigChange } from "./config";
-import { UsageSnapshot, AdminSnapshot, HistoryTuple, DailyAggregate } from "./types";
+import { UsageSnapshot, AdminSnapshot, EnterpriseSnapshot, HistoryTuple, DailyAggregate } from "./types";
 
 let statusBar: ClaudeUsageStatusBar;
 let scheduler: RefreshScheduler;
 let errorHandler: ErrorHandler;
 let lastSnapshot: UsageSnapshot | null = null;
 let lastAdminSnapshot: AdminSnapshot | null = null;
+let lastEnterpriseSnapshot: EnterpriseSnapshot | null = null;
 let extensionUri: vscode.Uri;
 let extensionContext!: vscode.ExtensionContext;
 
@@ -80,8 +82,12 @@ export function activate(context: vscode.ExtensionContext): void {
       const history = { recent: getHistory(), daily: getDaily() };
       if (lastAdminSnapshot) {
         DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri, history);
+      } else if (lastEnterpriseSnapshot) {
+        DetailPanel.show({ kind: "enterprise", data: lastEnterpriseSnapshot }, extensionUri, history);
+      } else if (lastSnapshot) {
+        DetailPanel.show({ kind: "oauth", data: lastSnapshot }, extensionUri, history);
       } else {
-        DetailPanel.show(lastSnapshot ? { kind: "oauth", data: lastSnapshot } : null, extensionUri, history);
+        DetailPanel.show(null, extensionUri, history);
       }
     }),
 
@@ -153,7 +159,7 @@ async function performRefresh(): Promise<void> {
   if (tokenResult.tokenType === "admin-key") {
     await performAdminRefresh(tokenResult.token);
   } else if (tokenResult.tokenType === "oauth") {
-    await performOauthRefresh(tokenResult.token, config, tokenResult.source);
+    await performOauthRefresh(tokenResult.token, config, tokenResult.source, tokenResult.orgUuid);
   } else {
     // Regular API key — no usage endpoint available
     statusBar.showError({
@@ -163,7 +169,12 @@ async function performRefresh(): Promise<void> {
   }
 }
 
-async function performOauthRefresh(token: string, config: ReturnType<typeof getConfig>, tokenSource: "auto-claude-code" | "manual-setting"): Promise<void> {
+async function performOauthRefresh(
+  token: string,
+  config: ReturnType<typeof getConfig>,
+  tokenSource: "auto-claude-code" | "manual-setting",
+  orgUuid?: string
+): Promise<void> {
   const apiResult = await fetchUsage(token);
   if (isExtensionError(apiResult)) {
     statusBar.showError(apiResult);
@@ -178,7 +189,14 @@ async function performOauthRefresh(token: string, config: ReturnType<typeof getC
     return;
   }
 
+  // Enterprise accounts don't have five_hour / seven_day windows — detect and try enterprise path
+  if (!apiResult.five_hour && !apiResult.seven_day) {
+    await performEnterpriseRefresh(token, orgUuid, config);
+    return;
+  }
+
   lastAdminSnapshot = null;
+  lastEnterpriseSnapshot = null;
   lastSnapshot = normalizeResponse(apiResult);
 
   const dailyPct = lastSnapshot.fiveHour ? Math.round(lastSnapshot.fiveHour.utilization * 100) : null;
@@ -207,6 +225,50 @@ async function performOauthRefresh(token: string, config: ReturnType<typeof getC
   }
 
   DetailPanel.updateIfOpen({ kind: "oauth", data: lastSnapshot }, history);
+}
+
+async function performEnterpriseRefresh(
+  token: string,
+  orgUuid: string | undefined,
+  config: ReturnType<typeof getConfig>
+): Promise<void> {
+  if (!orgUuid) {
+    lastSnapshot = null;
+    lastEnterpriseSnapshot = null;
+    statusBar.showEnterpriseUnavailable();
+    DetailPanel.updateIfOpen({ kind: "enterprise-unavailable" });
+    return;
+  }
+
+  // Resolve account UUID: manual config first, then auto-detect from profile endpoints
+  let accountUuid = config.accountUuid.trim();
+  if (!accountUuid) {
+    accountUuid = (await fetchAccountUuid(token)) ?? "";
+  }
+
+  if (!accountUuid) {
+    lastSnapshot = null;
+    lastEnterpriseSnapshot = null;
+    statusBar.showEnterpriseUnavailable();
+    DetailPanel.updateIfOpen({ kind: "enterprise-unavailable" });
+    return;
+  }
+
+  const result = await fetchEnterpriseSpend(token, orgUuid, accountUuid);
+  if (isEnterpriseError(result)) {
+    lastSnapshot = null;
+    lastEnterpriseSnapshot = null;
+    statusBar.showEnterpriseUnavailable();
+    DetailPanel.updateIfOpen({ kind: "enterprise-unavailable" });
+    return;
+  }
+
+  lastSnapshot = null;
+  lastAdminSnapshot = null;
+  lastEnterpriseSnapshot = result;
+
+  statusBar.showEnterpriseUsage(result);
+  DetailPanel.updateIfOpen({ kind: "enterprise", data: result });
 }
 
 async function performAdminRefresh(adminKey: string): Promise<void> {

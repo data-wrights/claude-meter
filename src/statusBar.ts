@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { UsageSnapshot, AdminSnapshot, ExtensionError, ExtensionConfig, HistoryTuple } from "./types";
+import { UsageSnapshot, AdminSnapshot, EnterpriseSnapshot, ExtensionError, ExtensionConfig, HistoryTuple } from "./types";
 import { formatTokens } from "./adminApi";
 
 export function parseResetAt(resetsAt: string): string {
@@ -136,6 +136,43 @@ export class ClaudeUsageStatusBar {
     const ago = Math.round((Date.now() - snapshot.fetchedAt.getTime()) / 1000);
     md.appendMarkdown(`---\n_Updated ${ago}s ago · Click for details_`);
     return md;
+  }
+
+  showEnterpriseUsage(snapshot: EnterpriseSnapshot): void {
+    const pct = snapshot.monthlyLimit > 0
+      ? Math.round((snapshot.usageCredits / snapshot.monthlyLimit) * 100)
+      : 0;
+    const isOverLimit = pct >= 100;
+    const isHighUsage = pct >= 80;
+
+    const icon = isOverLimit ? "$(warning)" : isHighUsage ? "$(alert)" : "$(pulse)";
+    const spent = snapshot.usageCredits.toFixed(2);
+    const limit = snapshot.monthlyLimit.toFixed(0);
+
+    this.item.text = `${icon} $${spent}/$${limit} (${pct}%)`;
+    this.item.color = isOverLimit
+      ? new vscode.ThemeColor("statusBarItem.errorForeground")
+      : isHighUsage
+      ? new vscode.ThemeColor("statusBarItem.warningForeground")
+      : undefined;
+    this.item.backgroundColor = isOverLimit
+      ? new vscode.ThemeColor("statusBarItem.errorBackground")
+      : undefined;
+
+    const md = new vscode.MarkdownString("", true);
+    md.appendMarkdown("**Claude Meter (Enterprise)**\n\n");
+    md.appendMarkdown(`**Spend**: $${spent} of $${limit} (${pct}%)\n\n`);
+    const ago = Math.round((Date.now() - snapshot.fetchedAt.getTime()) / 1000);
+    md.appendMarkdown(`---\n_Updated ${ago}s ago · Click for details_`);
+    this.item.tooltip = md;
+  }
+
+  showEnterpriseUnavailable(): void {
+    this.item.text = "$(pulse) Claude: Enterprise";
+    this.item.color = undefined;
+    this.item.backgroundColor = undefined;
+    this.item.tooltip =
+      "Enterprise account detected — click for details on how to enable spend tracking.";
   }
 
   showLoading(): void {

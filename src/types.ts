@@ -27,6 +27,13 @@ export interface UsageSnapshot {
   fetchedAt: Date;
 }
 
+// Enterprise dollar-based usage (for enterprise OAuth accounts)
+export interface EnterpriseSnapshot {
+  usageCredits: number;   // dollars spent this billing period
+  monthlyLimit: number;   // dollar limit for this billing period
+  fetchedAt: Date;
+}
+
 // Authentication result from tokenProvider
 export type TokenSource = "auto-claude-code" | "manual-setting";
 export type TokenType = "oauth" | "admin-key" | "api-key";
@@ -36,6 +43,7 @@ export interface TokenResult {
   source: TokenSource;
   tokenType: TokenType;
   expiresAt?: number; // Unix ms
+  orgUuid?: string;   // organization UUID from credentials file
 }
 
 // Admin API snapshot (enterprise accounts with sk-ant-admin- keys)
@@ -72,6 +80,7 @@ export interface ExtensionError {
 export interface ExtensionConfig {
   refreshIntervalMinutes: number;
   manualToken: string;
+  accountUuid: string;   // manual override for enterprise account UUID
   statusBarPosition: "left" | "right";
   statusBarPriority: number;
   showModelBreakdown: boolean;

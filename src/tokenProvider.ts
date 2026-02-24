@@ -70,6 +70,7 @@ function tryReadCredentialsFile(filePath: string): TokenResult | null {
       source: "auto-claude-code",
       tokenType: detectTokenType(oauth.accessToken),
       expiresAt: oauth.expiresAt,
+      orgUuid: data.organizationUuid,
     };
   } catch {
     return null;

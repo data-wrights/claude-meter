@@ -23,16 +23,10 @@ export class ErrorHandler {
         break;
       }
 
-      case "token-expired": {
-        const choice = await vscode.window.showWarningMessage(
-          "Claude Meter: Token expired or invalid. Re-authenticate Claude Code or update your token.",
-          "Enter New Token"
-        );
-        if (choice === "Enter New Token") {
-          await vscode.commands.executeCommand("claudeMeter.configure");
-        }
+      case "token-expired":
+        // Status bar already shows "Auth expired" — no popup to avoid repeated notifications
+        // while waiting for Claude Code to auto-refresh the token.
         break;
-      }
 
       case "rate-limited": {
         const retryStr = error.retryAfter

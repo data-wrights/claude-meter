@@ -8,6 +8,7 @@ export function getConfig(): ExtensionConfig {
   return {
     refreshIntervalMinutes: cfg.get<number>("refreshIntervalMinutes", 5),
     manualToken: cfg.get<string>("manualToken", ""),
+    accountUuid: cfg.get<string>("accountUuid", ""),
     statusBarPosition: cfg.get<"left" | "right">("statusBarPosition", "right"),
     statusBarPriority: cfg.get<number>("statusBarPriority", 100),
     showModelBreakdown: cfg.get<boolean>("showModelBreakdown", false),
