@@ -6,7 +6,7 @@ const SECTION = "claudeMeter";
 export function getConfig(): ExtensionConfig {
   const cfg = vscode.workspace.getConfiguration(SECTION);
   return {
-    refreshIntervalMinutes: cfg.get<number>("refreshIntervalMinutes", 5),
+    refreshIntervalMinutes: cfg.get<number>("refreshIntervalMinutes", 10),
     manualToken: cfg.get<string>("manualToken", ""),
     accountUuid: cfg.get<string>("accountUuid", ""),
     statusBarPosition: cfg.get<"left" | "right">("statusBarPosition", "right"),

@@ -44,7 +44,7 @@
       "properties": {
         "claudeMeter.refreshIntervalMinutes": {
           "type": "number",
-          "default": 5,
+          "default": 10,
           "minimum": 1,
           "maximum": 60,
           "description": "How often (in minutes) to refresh usage data from the Anthropic API."

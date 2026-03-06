@@ -63,7 +63,7 @@ Install the extension and open any workspace. The extension reads your token fro
 
 | Setting | Default | Description |
 |---|---|---|
-| `claudeMeter.refreshIntervalMinutes` | `5` | How often to poll the API (1–60 min) |
+| `claudeMeter.refreshIntervalMinutes` | `10` | How often to poll the API (1–60 min) |
 | `claudeMeter.manualToken` | `""` | Override the auto-detected token |
 | `claudeMeter.statusBarPosition` | `"right"` | `"left"` or `"right"` side of the status bar |
 | `claudeMeter.statusBarPriority` | `100` | Position within the chosen side (higher = further left) |

@@ -26,7 +26,7 @@ let lastErrorKind: string | null = null;
 // --- History storage ---
 const HISTORY_KEY = "claudeMeter.history";
 const DAILY_KEY   = "claudeMeter.daily";
-const MAX_HISTORY = 60;  // ~5h at 5-min intervals
+const MAX_HISTORY = 60;  // ~10h at 10-min default intervals
 const MAX_DAILY   = 90;  // 3 months of days
 
 function localDateStr(): string {
@@ -185,6 +185,13 @@ async function performOauthRefresh(
     // If the auto-detected token is expired, retry in 30 s — Claude Code may refresh it
     if (apiResult.kind === "token-expired" && tokenSource === "auto-claude-code") {
       scheduler.scheduleRetry(30_000);
+    }
+    // If rate-limited, back off using the retry-after hint (or 60 s default)
+    if (apiResult.kind === "rate-limited") {
+      const delayMs = apiResult.retryAfter
+        ? Math.max(0, apiResult.retryAfter.getTime() - Date.now())
+        : 60_000;
+      scheduler.scheduleRetry(Math.max(delayMs, 10_000));
     }
     return;
   }
