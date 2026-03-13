@@ -68,6 +68,7 @@ Install the extension and open any workspace. The extension reads your token fro
 | `claudeMeter.statusBarPosition` | `"right"` | `"left"` or `"right"` side of the status bar |
 | `claudeMeter.statusBarPriority` | `100` | Position within the chosen side (higher = further left) |
 | `claudeMeter.showModelBreakdown` | `false` | Show Opus/Sonnet sub-bars in the tooltip |
+| `claudeMeter.displayMode` | `"used"` | `"used"` shows percent consumed, `"remaining"` shows percent available |
 | `claudeMeter.notifyAtThreshold` | `0.9` | Notify when any window hits this fraction (set to `1.0` to silence) |
 
 ## Requirements
