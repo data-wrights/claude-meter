@@ -3,3 +3,4 @@ node_modules/
 *.vsix
 *.js.map
 .vscode-test/
+roadmap.md
