@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { UsageSnapshot, AdminSnapshot, EnterpriseSnapshot, HistoryTuple, DailyAggregate } from "./types";
+import { UsageSnapshot, AdminSnapshot, EnterpriseSnapshot, HistoryTuple, DailyAggregate, ExtensionConfig } from "./types";
 import { parseResetAt } from "./statusBar";
 import { formatTokens } from "./adminApi";
 
@@ -107,7 +107,10 @@ function buildAdminDailyChart(daily: DailyAggregate[]): string {
   return `<div class="chart-label">Daily tokens (last 30 days, scaled to peak)</div><div class="daily-chart">${bars}</div>`;
 }
 
-function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData): string {
+function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData, config?: ExtensionConfig): string {
+  const isRemaining = config?.displayMode === "remaining";
+  const modeLabel = isRemaining ? "remaining" : "used";
+
   const windows = [
     { label: "Daily",           data: snapshot.fiveHour },
     { label: "Weekly",          data: snapshot.sevenDay },
@@ -119,6 +122,7 @@ function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData): string 
     const d = w.data!;
     const rawPct = Math.round(d.utilization * 100);
     const displayPct = Math.min(rawPct, 100);
+    const shownPct = isRemaining ? Math.max(0, 100 - rawPct) : rawPct;
     const color = rawPct >= 90 ? "#f44747" : rawPct >= 70 ? "#ff8c00" : "#4ec9b0";
     const reset = parseResetAt(d.resets_at);
     return `
@@ -126,7 +130,7 @@ function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData): string 
       <div class="window-label">${w.label}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${displayPct}%;background:${color}"></div></div>
       <div class="window-meta">
-        <span class="pct ${rawPct >= 90 ? "danger" : rawPct >= 70 ? "warn" : ""}">${rawPct}% used</span>
+        <span class="pct ${rawPct >= 90 ? "danger" : rawPct >= 70 ? "warn" : ""}">${shownPct}% ${modeLabel}</span>
         <span class="reset">Resets: ${reset}</span>
       </div>
     </div>`;
@@ -188,21 +192,24 @@ function buildAdminHtml(snapshot: AdminSnapshot, history?: HistoryData): string 
   `);
 }
 
-function buildEnterpriseHtml(snapshot: EnterpriseSnapshot): string {
+function buildEnterpriseHtml(snapshot: EnterpriseSnapshot, config?: ExtensionConfig): string {
+  const isRemaining = config?.displayMode === "remaining";
   const pct = snapshot.monthlyLimit > 0
     ? Math.round((snapshot.usageCredits / snapshot.monthlyLimit) * 100)
     : 0;
   const displayPct = Math.min(pct, 100);
+  const shownPct = isRemaining ? Math.max(0, 100 - pct) : pct;
   const color = pct >= 90 ? "#f44747" : pct >= 70 ? "#ff8c00" : "#4ec9b0";
   const spent = snapshot.usageCredits.toFixed(2);
   const limit = snapshot.monthlyLimit.toFixed(2);
+  const spendLabel = isRemaining ? `$${(snapshot.monthlyLimit - snapshot.usageCredits).toFixed(2)} remaining` : `$${spent} used`;
 
   const bar = `
     <div class="window-row">
       <div class="window-label">Monthly Spend</div>
       <div class="bar-track"><div class="bar-fill" style="width:${displayPct}%;background:${color}"></div></div>
       <div class="window-meta">
-        <span class="pct ${pct >= 90 ? "danger" : pct >= 70 ? "warn" : ""}">$${spent} used</span>
+        <span class="pct ${pct >= 90 ? "danger" : pct >= 70 ? "warn" : ""}">${spendLabel}</span>
         <span class="reset">Limit: $${limit}</span>
       </div>
     </div>`;
@@ -239,15 +246,15 @@ export class DetailPanel {
   private static currentPanel: DetailPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
 
-  static updateIfOpen(snapshot: AnySnapshot, history?: HistoryData): void {
+  static updateIfOpen(snapshot: AnySnapshot, history?: HistoryData, config?: ExtensionConfig): void {
     if (DetailPanel.currentPanel) {
-      DetailPanel.currentPanel.update(snapshot, history);
+      DetailPanel.currentPanel.update(snapshot, history, config);
     }
   }
 
-  static show(snapshot: AnySnapshot, extensionUri: vscode.Uri, history?: HistoryData): void {
+  static show(snapshot: AnySnapshot, extensionUri: vscode.Uri, history?: HistoryData, config?: ExtensionConfig): void {
     if (DetailPanel.currentPanel) {
-      DetailPanel.currentPanel.update(snapshot, history);
+      DetailPanel.currentPanel.update(snapshot, history, config);
       DetailPanel.currentPanel.panel.reveal(vscode.ViewColumn.Beside, true);
       return;
     }
@@ -257,29 +264,29 @@ export class DetailPanel {
       { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
       { enableScripts: false, retainContextWhenHidden: false, localResourceRoots: [extensionUri] }
     );
-    DetailPanel.currentPanel = new DetailPanel(panel, snapshot, history);
+    DetailPanel.currentPanel = new DetailPanel(panel, snapshot, history, config);
   }
 
-  private constructor(panel: vscode.WebviewPanel, snapshot: AnySnapshot, history?: HistoryData) {
+  private constructor(panel: vscode.WebviewPanel, snapshot: AnySnapshot, history?: HistoryData, config?: ExtensionConfig) {
     this.panel = panel;
-    this.update(snapshot, history);
+    this.update(snapshot, history, config);
     panel.onDidDispose(() => { DetailPanel.currentPanel = undefined; });
   }
 
-  update(snapshot: AnySnapshot, history?: HistoryData): void {
-    this.panel.webview.html = this.buildHtml(snapshot, history);
+  update(snapshot: AnySnapshot, history?: HistoryData, config?: ExtensionConfig): void {
+    this.panel.webview.html = this.buildHtml(snapshot, history, config);
   }
 
-  private buildHtml(snapshot: AnySnapshot, history?: HistoryData): string {
+  private buildHtml(snapshot: AnySnapshot, history?: HistoryData, config?: ExtensionConfig): string {
     if (!snapshot) {
       return htmlShell("Claude Meter Details",
         `<p>No usage data available. Use <strong>Claude Meter: Refresh Now</strong> from the command palette.</p>`
       );
     }
     if (snapshot.kind === "admin")                  { return buildAdminHtml(snapshot.data, history); }
-    if (snapshot.kind === "enterprise")             { return buildEnterpriseHtml(snapshot.data); }
+    if (snapshot.kind === "enterprise")             { return buildEnterpriseHtml(snapshot.data, config); }
     if (snapshot.kind === "enterprise-unavailable") { return buildEnterpriseUnavailableHtml(); }
-    return buildOauthHtml(snapshot.data, history);
+    return buildOauthHtml(snapshot.data, history, config);
   }
 
   dispose(): void { this.panel.dispose(); }

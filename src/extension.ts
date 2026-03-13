@@ -79,15 +79,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand("claudeMeter.showDetails", () => {
+      const cfg = getConfig();
       const history = { recent: getHistory(), daily: getDaily() };
       if (lastAdminSnapshot) {
-        DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri, history);
+        DetailPanel.show({ kind: "admin", data: lastAdminSnapshot }, extensionUri, history, cfg);
       } else if (lastEnterpriseSnapshot) {
-        DetailPanel.show({ kind: "enterprise", data: lastEnterpriseSnapshot }, extensionUri, history);
+        DetailPanel.show({ kind: "enterprise", data: lastEnterpriseSnapshot }, extensionUri, history, cfg);
       } else if (lastSnapshot) {
-        DetailPanel.show({ kind: "oauth", data: lastSnapshot }, extensionUri, history);
+        DetailPanel.show({ kind: "oauth", data: lastSnapshot }, extensionUri, history, cfg);
       } else {
-        DetailPanel.show(null, extensionUri, history);
+        DetailPanel.show(null, extensionUri, history, cfg);
       }
     }),
 
@@ -231,7 +232,7 @@ async function performOauthRefresh(
     );
   }
 
-  DetailPanel.updateIfOpen({ kind: "oauth", data: lastSnapshot }, history);
+  DetailPanel.updateIfOpen({ kind: "oauth", data: lastSnapshot }, history, config);
 }
 
 async function performEnterpriseRefresh(
@@ -274,8 +275,8 @@ async function performEnterpriseRefresh(
   lastAdminSnapshot = null;
   lastEnterpriseSnapshot = result;
 
-  statusBar.showEnterpriseUsage(result);
-  DetailPanel.updateIfOpen({ kind: "enterprise", data: result });
+  statusBar.showEnterpriseUsage(result, config);
+  DetailPanel.updateIfOpen({ kind: "enterprise", data: result }, undefined, config);
 }
 
 async function performAdminRefresh(adminKey: string): Promise<void> {
@@ -301,7 +302,7 @@ async function performAdminRefresh(adminKey: string): Promise<void> {
   statusBar.showAdminUsage(lastAdminSnapshot);
 
   const adminHistory = { recent: getHistory(), daily: getDaily() };
-  DetailPanel.updateIfOpen({ kind: "admin", data: lastAdminSnapshot }, adminHistory);
+  DetailPanel.updateIfOpen({ kind: "admin", data: lastAdminSnapshot }, adminHistory, getConfig());
 }
 
 export function deactivate(): void {

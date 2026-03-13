@@ -68,6 +68,8 @@ export class ClaudeUsageStatusBar {
 
     const fivePct = fiveH ? Math.round(fiveH.utilization * 100) : null;
     const sevenPct = sevenD ? Math.round(sevenD.utilization * 100) : null;
+    const remaining = config.displayMode === "remaining";
+    const displayPct = (pct: number) => remaining ? Math.max(0, 100 - pct) : pct;
 
     const isOverLimit = (fivePct ?? 0) >= 100 || (sevenPct ?? 0) >= 100;
     const isHighUsage = (fivePct ?? 0) >= 80 || (sevenPct ?? 0) >= 80;
@@ -85,10 +87,10 @@ export class ClaudeUsageStatusBar {
 
     const parts: string[] = [];
     if (fivePct !== null && fiveH) {
-      parts.push(`Daily:${fivePct}%${compactArrow(dailyArrow)}·${formatTimeRemaining(fiveH.resets_at)}`);
+      parts.push(`Daily:${displayPct(fivePct)}%${compactArrow(dailyArrow)}·${formatTimeRemaining(fiveH.resets_at)}`);
     }
     if (sevenPct !== null && sevenD) {
-      parts.push(`Weekly:${sevenPct}%${compactArrow(weeklyArrow)}·${formatTimeRemaining(sevenD.resets_at)}`);
+      parts.push(`Weekly:${displayPct(sevenPct)}%${compactArrow(weeklyArrow)}·${formatTimeRemaining(sevenD.resets_at)}`);
     }
 
     this.item.text = `${icon} ${parts.join("  ")}`;
@@ -138,10 +140,13 @@ export class ClaudeUsageStatusBar {
     return md;
   }
 
-  showEnterpriseUsage(snapshot: EnterpriseSnapshot): void {
+  showEnterpriseUsage(snapshot: EnterpriseSnapshot, config: ExtensionConfig): void {
     const pct = snapshot.monthlyLimit > 0
       ? Math.round((snapshot.usageCredits / snapshot.monthlyLimit) * 100)
       : 0;
+    const remaining = config.displayMode === "remaining";
+    const shownPct = remaining ? Math.max(0, 100 - pct) : pct;
+    const label = remaining ? "remaining" : "used";
     const isOverLimit = pct >= 100;
     const isHighUsage = pct >= 80;
 
@@ -149,7 +154,7 @@ export class ClaudeUsageStatusBar {
     const spent = snapshot.usageCredits.toFixed(2);
     const limit = snapshot.monthlyLimit.toFixed(0);
 
-    this.item.text = `${icon} $${spent}/$${limit} (${pct}%)`;
+    this.item.text = `${icon} $${spent}/$${limit} (${shownPct}%)`;
     this.item.color = isOverLimit
       ? new vscode.ThemeColor("statusBarItem.errorForeground")
       : isHighUsage
@@ -161,7 +166,7 @@ export class ClaudeUsageStatusBar {
 
     const md = new vscode.MarkdownString("", true);
     md.appendMarkdown("**Claude Meter (Enterprise)**\n\n");
-    md.appendMarkdown(`**Spend**: $${spent} of $${limit} (${pct}%)\n\n`);
+    md.appendMarkdown(`**Spend**: $${spent} of $${limit} (${shownPct}% ${label})\n\n`);
     const ago = Math.round((Date.now() - snapshot.fetchedAt.getTime()) / 1000);
     md.appendMarkdown(`---\n_Updated ${ago}s ago · Click for details_`);
     this.item.tooltip = md;
@@ -215,6 +220,9 @@ export class ClaudeUsageStatusBar {
     md.supportHtml = true;
     md.appendMarkdown("**Claude Meter**\n\n");
 
+    const isRemaining = config.displayMode === "remaining";
+    const modeLabel = isRemaining ? "remaining" : "used";
+
     const fmt = (
       w: { utilization: number; resets_at: string } | null,
       label: string,
@@ -222,15 +230,17 @@ export class ClaudeUsageStatusBar {
     ) => {
       if (!w) { return; }
       const pct = Math.round(w.utilization * 100);
+      const shownPct = isRemaining ? Math.max(0, 100 - pct) : pct;
       const bar = buildProgressBar(w.utilization);
       const reset = parseResetAt(w.resets_at);
       const remaining = formatTimeRemaining(w.resets_at);
       const { arrow, delta } = trendInfo(history, slotIndex, pct);
-      const trendStr = delta !== null
-        ? ` ${arrow} ${delta >= 0 ? "+" : ""}${delta}% vs 1h ago`
+      const displayDelta = delta !== null ? (isRemaining ? -delta : delta) : null;
+      const trendStr = displayDelta !== null
+        ? ` ${arrow} ${displayDelta >= 0 ? "+" : ""}${displayDelta}% vs 1h ago`
         : "";
       md.appendMarkdown(
-        `**${label}**: \`${bar}\` ${pct}%${trendStr}  \nResets in **${remaining}** (${reset})\n\n`
+        `**${label}**: \`${bar}\` ${shownPct}% ${modeLabel}${trendStr}  \nResets in **${remaining}** (${reset})\n\n`
       );
     };
 
@@ -242,9 +252,10 @@ export class ClaudeUsageStatusBar {
       const fmtNoTrend = (w: { utilization: number; resets_at: string } | null, label: string) => {
         if (!w) { return; }
         const pct = Math.round(w.utilization * 100);
+        const shownPct = isRemaining ? Math.max(0, 100 - pct) : pct;
         const bar = buildProgressBar(w.utilization);
         md.appendMarkdown(
-          `**${label}**: \`${bar}\` ${pct}%  \nResets in **${formatTimeRemaining(w.resets_at)}** (${parseResetAt(w.resets_at)})\n\n`
+          `**${label}**: \`${bar}\` ${shownPct}% ${modeLabel}  \nResets in **${formatTimeRemaining(w.resets_at)}** (${parseResetAt(w.resets_at)})\n\n`
         );
       };
       fmtNoTrend(snapshot.sevenDayOpus, "Weekly (Opus)");

@@ -85,6 +85,7 @@ export interface ExtensionConfig {
   statusBarPriority: number;
   showModelBreakdown: boolean;
   notifyAtThreshold: number;
+  displayMode: "used" | "remaining";
 }
 
 // Compact history tuple types for globalState storage (no key names = smaller JSON)
