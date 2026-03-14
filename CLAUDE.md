@@ -88,6 +88,7 @@ All under the `claudeMeter.*` namespace:
 - `showModelBreakdown` (false) — Opus/Sonnet sub-bars in tooltip
 - `displayMode` ("used") — show used% or remaining%
 - `notifyAtThreshold` (0.9) — warning notification threshold
+- `notifyOnReset` (true) — notify when an exhausted window resets
 
 ## Commands
 
@@ -111,6 +112,17 @@ All under the `claudeMeter.*` namespace:
 - Error handling returns `ExtensionError` union types rather than throwing
 - Status bar icons use VS Code codicons: `$(pulse)`, `$(warning)`, `$(alert)`, `$(error)`, `$(clock)`, `$(key)`, `$(loading~spin)`
 - Tooltip content uses `vscode.MarkdownString` with `isTrusted = true`
+
+## Release Checklist
+
+When asked to do a release, follow these steps in order:
+
+1. **Update README.md** — ensure all new features, settings, commands, and status bar examples are documented
+2. **Bump version** in `package.json`
+3. **Commit all changes** and push to `origin/main`
+4. **Create a GitHub release** via `gh release create vX.Y.Z` with release notes and the `.vsix` attached
+5. **Build** with `npx @vscode/vsce package`
+6. **Publish** with `npx @vscode/vsce publish`
 
 ## Roadmap
 
