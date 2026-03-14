@@ -222,6 +222,12 @@ async function performOauthRefresh(
       "Daily",
       config.notifyAtThreshold
     );
+    errorHandler.trackExhaustion(
+      lastSnapshot.fiveHour.utilization,
+      "five_hour",
+      "Daily",
+      config.notifyOnReset
+    );
   }
   if (lastSnapshot.sevenDay) {
     errorHandler.notifyIfHighUsage(
@@ -229,6 +235,12 @@ async function performOauthRefresh(
       "seven_day",
       "Weekly",
       config.notifyAtThreshold
+    );
+    errorHandler.trackExhaustion(
+      lastSnapshot.sevenDay.utilization,
+      "seven_day",
+      "Weekly",
+      config.notifyOnReset
     );
   }
 

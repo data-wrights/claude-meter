@@ -8,8 +8,11 @@ A VS Code extension that shows your Claude subscription usage directly in the st
 - **Trend arrows** — `↑`/`↓` appear next to percentages when usage is rising or falling vs. an hour ago
 - **Countdown to reset** — shows time remaining (e.g. `Daily:26%↑·3h  Weekly:20%→·5d`)
 - **Color-coded alerts** — orange at ≥80%, red background at ≥100%
-- **Hover tooltip** — ASCII progress bars, exact reset times, and `+X% vs 1h ago` trend deltas per window
-- **Detail panel** — click the status bar item for a full breakdown with bar charts, short-term sparklines (last 2 hours), and a 30-day daily history chart
+- **Burn rate / pacing** — tooltip shows your consumption rate (~X%/hr) and projected time to exhaustion, with a warning when you're on pace to exceed before reset
+- **Cooldown timer** — when usage hits 100%, the status bar switches to a live countdown (`Claude: Resets in 47m`) that updates every minute without extra API calls
+- **Reset notification** — get a desktop notification when a previously exhausted window drops back below 100%, so you know you can resume
+- **Hover tooltip** — ASCII progress bars, exact reset times, trend deltas, and burn rate per window
+- **Detail panel** — click the status bar item for a full breakdown with pacing gauges, bar charts, short-term sparklines (last 2 hours), and a 30-day daily history chart
 - **Persistent history** — usage data survives VS Code reloads; daily peak values are stored for up to 3 months
 - **Model breakdown** — optional Opus/Sonnet sub-bars in the tooltip
 - **Enterprise support** — admin API keys (`sk-ant-admin-...`) show token counts (Today/Week) with daily history
@@ -22,6 +25,7 @@ $(pulse) Daily:26%·3h  Weekly:20%·5d         ← normal (white)
 $(pulse) Daily:26%↑·3h  Weekly:20%→·5d       ← with trend arrows (after 1h of data)
 $(alert) Daily:81%↑·45m  Weekly:20%·5d       ← high usage ≥80%
 $(warning) Daily:103%·now  Weekly:95%·2d     ← over limit ≥100%
+$(clock) Claude: Resets in 47m               ← cooldown countdown at 100%
 $(pulse) Today:1.2M  Week:8.5M               ← enterprise / admin key
 ```
 
@@ -70,6 +74,7 @@ Install the extension and open any workspace. The extension reads your token fro
 | `claudeMeter.showModelBreakdown` | `false` | Show Opus/Sonnet sub-bars in the tooltip |
 | `claudeMeter.displayMode` | `"used"` | `"used"` shows percent consumed, `"remaining"` shows percent available |
 | `claudeMeter.notifyAtThreshold` | `0.9` | Notify when any window hits this fraction (set to `1.0` to silence) |
+| `claudeMeter.notifyOnReset` | `true` | Show a notification when a previously exhausted usage window resets |
 
 ## Requirements
 

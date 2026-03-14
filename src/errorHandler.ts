@@ -3,6 +3,7 @@ import { ExtensionError } from "./types";
 
 export class ErrorHandler {
   private thresholdNotifiedWindows = new Set<string>();
+  private exhaustedWindows = new Set<string>();
 
   async handleError(error: ExtensionError): Promise<void> {
     switch (error.kind) {
@@ -62,6 +63,26 @@ export class ErrorHandler {
       }
     } else {
       this.thresholdNotifiedWindows.delete(windowKey);
+    }
+  }
+
+  /** Track exhausted windows and notify when they reset. */
+  trackExhaustion(
+    utilization: number,
+    windowKey: string,
+    windowLabel: string,
+    notifyOnReset: boolean
+  ): void {
+    if (utilization >= 1.0) {
+      this.exhaustedWindows.add(windowKey);
+    } else if (this.exhaustedWindows.has(windowKey)) {
+      this.exhaustedWindows.delete(windowKey);
+      if (notifyOnReset) {
+        const pct = Math.round(utilization * 100);
+        vscode.window.showInformationMessage(
+          `Claude Meter: Your ${windowLabel} limit just reset — you're back to ${pct}%.`
+        );
+      }
     }
   }
 }

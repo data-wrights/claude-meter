@@ -36,6 +36,51 @@ function trendInfo(
   return { arrow, delta };
 }
 
+export interface BurnRateInfo {
+  ratePctPerHour: number;
+  hoursToExhaustion: number | null;
+  onPaceToExceed: boolean;
+}
+
+/**
+ * Calculate consumption rate from the last ~2 hours of history snapshots.
+ * Returns null if insufficient data (need ≥2 points spanning ≥10 min).
+ */
+export function calcBurnRate(
+  history: HistoryTuple[],
+  slotIndex: 1 | 2,
+  currentPct: number,
+  resetsAt: string | undefined
+): BurnRateInfo | null {
+  const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+  let oldest: HistoryTuple | undefined;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i][0] >= twoHoursAgo && history[i][slotIndex] !== null) {
+      oldest = history[i];
+      break;
+    }
+  }
+  if (!oldest || oldest[slotIndex] === null) { return null; }
+
+  const hoursDelta = (Date.now() - oldest[0]) / 3_600_000;
+  if (hoursDelta < 10 / 60) { return null; } // need at least ~10 min span
+
+  const pastPct = oldest[slotIndex] as number;
+  const ratePctPerHour = (currentPct - pastPct) / hoursDelta;
+  if (ratePctPerHour <= 0) { return null; }
+
+  const remaining = 100 - currentPct;
+  const hoursToExhaustion = remaining > 0 ? remaining / ratePctPerHour : null;
+
+  let onPaceToExceed = false;
+  if (hoursToExhaustion !== null && resetsAt) {
+    const hoursToReset = (new Date(resetsAt).getTime() - Date.now()) / 3_600_000;
+    onPaceToExceed = hoursToReset > 0 && hoursToExhaustion < hoursToReset;
+  }
+
+  return { ratePctPerHour, hoursToExhaustion, onPaceToExceed };
+}
+
 function buildProgressBar(utilization: number): string {
   const width = 10;
   const clamped = Math.min(utilization, 1.0);
@@ -46,6 +91,8 @@ function buildProgressBar(utilization: number): string {
 
 export class ClaudeUsageStatusBar {
   private item: vscode.StatusBarItem;
+  private cooldownTimer: ReturnType<typeof setInterval> | null = null;
+  private cooldownResetAt: string | null = null;
 
   constructor(config: ExtensionConfig) {
     const alignment =
@@ -74,6 +121,20 @@ export class ClaudeUsageStatusBar {
     const isOverLimit = (fivePct ?? 0) >= 100 || (sevenPct ?? 0) >= 100;
     const isHighUsage = (fivePct ?? 0) >= 80 || (sevenPct ?? 0) >= 80;
 
+    // Cooldown: when at 100%, show live countdown instead of normal text
+    if (isOverLimit) {
+      // Pick the earliest reset time among exhausted windows
+      const candidates: string[] = [];
+      if ((fivePct ?? 0) >= 100 && fiveH) { candidates.push(fiveH.resets_at); }
+      if ((sevenPct ?? 0) >= 100 && sevenD) { candidates.push(sevenD.resets_at); }
+      const earliest = candidates.sort()[0];
+      if (earliest) {
+        this.startCooldown(earliest);
+      }
+    } else {
+      this.stopCooldown();
+    }
+
     const icon = isOverLimit
       ? "$(warning)"
       : isHighUsage
@@ -85,15 +146,21 @@ export class ClaudeUsageStatusBar {
     const weeklyArrow = sevenPct !== null ? trendInfo(history, 2, sevenPct).arrow : "";
     const compactArrow = (a: string) => (a === "→" ? "" : a);
 
-    const parts: string[] = [];
-    if (fivePct !== null && fiveH) {
-      parts.push(`Daily:${displayPct(fivePct)}%${compactArrow(dailyArrow)}·${formatTimeRemaining(fiveH.resets_at)}`);
-    }
-    if (sevenPct !== null && sevenD) {
-      parts.push(`Weekly:${displayPct(sevenPct)}%${compactArrow(weeklyArrow)}·${formatTimeRemaining(sevenD.resets_at)}`);
+    // In cooldown mode, the timer keeps the text updated between refreshes.
+    // On each refresh we still set the text so it's immediately correct.
+    if (isOverLimit && this.cooldownResetAt) {
+      this.updateCooldownText();
+    } else {
+      const parts: string[] = [];
+      if (fivePct !== null && fiveH) {
+        parts.push(`Daily:${displayPct(fivePct)}%${compactArrow(dailyArrow)}·${formatTimeRemaining(fiveH.resets_at)}`);
+      }
+      if (sevenPct !== null && sevenD) {
+        parts.push(`Weekly:${displayPct(sevenPct)}%${compactArrow(weeklyArrow)}·${formatTimeRemaining(sevenD.resets_at)}`);
+      }
+      this.item.text = `${icon} ${parts.join("  ")}`;
     }
 
-    this.item.text = `${icon} ${parts.join("  ")}`;
     // Shift to warning/error colors as usage rises; default (white) for normal state
     this.item.color = isOverLimit
       ? new vscode.ThemeColor("statusBarItem.errorForeground")
@@ -239,8 +306,25 @@ export class ClaudeUsageStatusBar {
       const trendStr = displayDelta !== null
         ? ` ${arrow} ${displayDelta >= 0 ? "+" : ""}${displayDelta}% vs 1h ago`
         : "";
+      // Burn rate / pacing line
+      const burn = calcBurnRate(history, slotIndex, pct, w.resets_at);
+      let burnStr = "";
+      if (burn && pct < 100) {
+        const rateStr = `~${burn.ratePctPerHour.toFixed(1)}%/hr`;
+        if (burn.hoursToExhaustion !== null) {
+          const exhaust = burn.hoursToExhaustion < 1
+            ? `${Math.round(burn.hoursToExhaustion * 60)}m`
+            : `${burn.hoursToExhaustion.toFixed(1)}h`;
+          burnStr = burn.onPaceToExceed
+            ? `  \n$(watch) ${rateStr} · Exhausted in ~${exhaust} (before reset)`
+            : `  \n$(watch) ${rateStr} · Exhausted in ~${exhaust}`;
+        } else {
+          burnStr = `  \n$(watch) ${rateStr}`;
+        }
+      }
+
       md.appendMarkdown(
-        `**${label}**: \`${bar}\` ${shownPct}% ${modeLabel}${trendStr}  \nResets in **${remaining}** (${reset})\n\n`
+        `**${label}**: \`${bar}\` ${shownPct}% ${modeLabel}${trendStr}${burnStr}  \nResets in **${remaining}** (${reset})\n\n`
       );
     };
 
@@ -269,7 +353,35 @@ export class ClaudeUsageStatusBar {
     return md;
   }
 
+  private startCooldown(resetsAt: string): void {
+    // Avoid restarting if already counting down to the same target
+    if (this.cooldownResetAt === resetsAt && this.cooldownTimer !== null) { return; }
+    this.stopCooldown();
+    this.cooldownResetAt = resetsAt;
+    this.cooldownTimer = setInterval(() => { this.updateCooldownText(); }, 60_000);
+  }
+
+  private updateCooldownText(): void {
+    if (!this.cooldownResetAt) { return; }
+    const remaining = formatTimeRemaining(this.cooldownResetAt);
+    if (remaining === "now") {
+      this.item.text = "$(clock) Claude: Resetting...";
+      this.stopCooldown();
+    } else {
+      this.item.text = `$(clock) Claude: Resets in ${remaining}`;
+    }
+  }
+
+  private stopCooldown(): void {
+    if (this.cooldownTimer !== null) {
+      clearInterval(this.cooldownTimer);
+      this.cooldownTimer = null;
+    }
+    this.cooldownResetAt = null;
+  }
+
   dispose(): void {
+    this.stopCooldown();
     this.item.dispose();
   }
 }

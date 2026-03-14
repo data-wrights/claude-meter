@@ -14,6 +14,7 @@ export function getConfig(): ExtensionConfig {
     showModelBreakdown: cfg.get<boolean>("showModelBreakdown", false),
     notifyAtThreshold: cfg.get<number>("notifyAtThreshold", 0.9),
     displayMode: cfg.get<"used" | "remaining">("displayMode", "used"),
+    notifyOnReset: cfg.get<boolean>("notifyOnReset", true),
   };
 }
 

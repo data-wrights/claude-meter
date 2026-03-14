@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { UsageSnapshot, AdminSnapshot, EnterpriseSnapshot, HistoryTuple, DailyAggregate, ExtensionConfig } from "./types";
-import { parseResetAt } from "./statusBar";
+import { parseResetAt, calcBurnRate } from "./statusBar";
 import { formatTokens } from "./adminApi";
 
 type HistoryData = { recent: HistoryTuple[]; daily: DailyAggregate[] };
@@ -41,6 +41,12 @@ const SHARED_CSS = `
   .spark-bar.warn, .day-bar.warn { background: #ff8c00; }
   .spark-bar.danger, .day-bar.danger { background: #f44747; }
   .day-label { position: absolute; bottom: -16px; left: 0; right: 0; font-size: 8px; text-align: center; color: var(--vscode-descriptionForeground); overflow: hidden; }
+  .burn-section { margin-top: 16px; margin-bottom: 24px; }
+  .burn-section h3 { margin-top: 0; margin-bottom: 12px; font-size: 0.95em; }
+  .burn-card { background: var(--vscode-input-background); border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+  .burn-rate { font-size: 1.1em; font-weight: 600; color: #4ec9b0; }
+  .burn-rate.warn { color: #ff8c00; }
+  .burn-exhaust { font-size: 0.85em; color: var(--vscode-descriptionForeground); margin-top: 4px; }
 `;
 
 function htmlShell(title: string, body: string): string {
@@ -107,6 +113,37 @@ function buildAdminDailyChart(daily: DailyAggregate[]): string {
   return `<div class="chart-label">Daily tokens (last 30 days, scaled to peak)</div><div class="daily-chart">${bars}</div>`;
 }
 
+function buildBurnRateSection(snapshot: UsageSnapshot, recent: HistoryTuple[]): string {
+  const items: { label: string; slotIndex: 1 | 2; window: { utilization: number; resets_at: string } }[] = [];
+  if (snapshot.fiveHour) { items.push({ label: "Daily", slotIndex: 1, window: snapshot.fiveHour }); }
+  if (snapshot.sevenDay) { items.push({ label: "Weekly", slotIndex: 2, window: snapshot.sevenDay }); }
+
+  const cards = items.map(({ label, slotIndex, window: w }) => {
+    const pct = Math.round(w.utilization * 100);
+    const burn = calcBurnRate(recent, slotIndex, pct, w.resets_at);
+    if (!burn || pct >= 100) { return ""; }
+
+    const rateStr = `${burn.ratePctPerHour.toFixed(1)}%/hr`;
+    let exhaustStr = "";
+    if (burn.hoursToExhaustion !== null) {
+      const t = burn.hoursToExhaustion < 1
+        ? `${Math.round(burn.hoursToExhaustion * 60)} minutes`
+        : `${burn.hoursToExhaustion.toFixed(1)} hours`;
+      exhaustStr = burn.onPaceToExceed
+        ? `Projected exhaustion in <strong>${t}</strong> (before reset)`
+        : `Projected exhaustion in <strong>${t}</strong>`;
+    }
+    return `
+      <div class="burn-card">
+        <div class="burn-rate ${burn.onPaceToExceed ? "warn" : ""}">${label}: ~${rateStr}</div>
+        ${exhaustStr ? `<div class="burn-exhaust">${exhaustStr}</div>` : ""}
+      </div>`;
+  }).filter(Boolean).join("");
+
+  if (!cards) { return ""; }
+  return `<section class="burn-section"><h3>Pacing</h3>${cards}</section>`;
+}
+
 function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData, config?: ExtensionConfig): string {
   const isRemaining = config?.displayMode === "remaining";
   const modeLabel = isRemaining ? "remaining" : "used";
@@ -138,6 +175,9 @@ function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData, config?:
 
   const recent = history?.recent ?? [];
   const daily  = history?.daily  ?? [];
+
+  const burnSection = buildBurnRateSection(snapshot, recent);
+
   const sparklineSection = (recent.length >= 2 || daily.length >= 2) ? `
     <section class="history-section">
       <h3>Usage History</h3>
@@ -149,6 +189,7 @@ function buildOauthHtml(snapshot: UsageSnapshot, history?: HistoryData, config?:
   return htmlShell("Claude Meter (Subscription)", `
     <div class="fetched">Last updated: ${snapshot.fetchedAt.toLocaleString()}</div>
     ${rows}
+    ${burnSection}
     ${sparklineSection}
     <div class="tip">Run <em>Claude Meter: Refresh Now</em> from the command palette to update.</div>
   `);
